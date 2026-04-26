@@ -252,7 +252,7 @@
             <h3 class="text-3xl font-bold-game text-indigo-600 mb-2">EXCELLENT WORK!</h3>
             <p class="text-slate-600 mb-8 font-medium">You have reviewed all the words.</p>
             <div class="flex flex-col gap-4">
-                <button onclick="handleContinueHere()" class="w-full py-4 bg-slate-200 text-slate-700 rounded-2xl font-bold-game text-lg btn-bounce">STAY HERE</button>
+                <button id="stay-here-btn" onclick="handleContinueHere()" class="w-full py-4 bg-slate-200 text-slate-700 rounded-2xl font-bold-game text-lg btn-bounce">STAY HERE</button>
                 <button onclick="goToSpellingFromModal()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold-game text-lg btn-bounce">GO TO MISSION 2 🕵️</button>
             </div>
         </div>
@@ -621,7 +621,7 @@
             const grid = document.getElementById('learn-grid');
             grid.innerHTML = originalVocabulary.map((v, i) => `
                 <div id="learn-card-${i}" onclick="learnClick(this, '${v.word}')" class="glass p-6 cursor-pointer btn-bounce flex flex-col items-center group relative transition-all duration-300 ${state.wrongQuizWords.has(v.word) ? 'wrong-highlight' : ''}">
-                    <div class="word-check absolute top-4 right-4 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px] scale-0 transition-transform ${state.learnedWords.has(v.word) ? 'scale-100' : ''}">✓</div>
+                    <div class="word-check absolute top-4 right-4 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px] ${state.learnedWords.has(v.word) ? 'scale-100' : 'scale-0'} transition-transform">✓</div>
                     <span class="text-5xl group-hover:scale-125 transition-transform">${v.icon}</span>
                     <span class="mt-4 font-bold-game text-xl text-indigo-600 uppercase">${v.word}</span>
                 </div>
@@ -690,7 +690,16 @@
         }
 
         function handleContinueHere() {
+            // Reiniciar los checks de la misión 1
+            state.learnedWords.clear();
+            
+            // Si estamos en la sección de aprendizaje, renderizar de nuevo
+            if (state.currentSection === 'learn') {
+                renderLearn();
+            }
+            
             closeNextMissionModal();
+            updateSpeech("Ready to practice again!");
         }
 
         function goToSpellingFromModal() {
@@ -931,6 +940,12 @@
         }
 
         function goToReview() {
+            // Actualización de la lógica del botón "Review"
+            // 1. Limpiar los registros de palabras aprendidas para resetear los checks
+            state.learnedWords.clear();
+            
+            // 2. Ir a la sección de aprendizaje (Misión 1)
+            // La función renderLearn se encarga de pintar de amarillo solo las de wrongQuizWords
             startMission('learn');
         }
 
@@ -1007,6 +1022,49 @@
                 document.body.appendChild(s);
                 setTimeout(() => s.remove(), 800);
             }
+        }
+
+        // --- DEVELOPER SHORTCUT: CTRL+U ---
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'u') {
+                e.preventDefault();
+                shortcutMasterSkip();
+            }
+        });
+
+        function shortcutMasterSkip() {
+            if (!state.studentName) {
+                updateSpeech("Please enter your name first!");
+                return;
+            }
+
+            confetti({ particleCount: 50, spread: 70, origin: { y: 0.5 } });
+            
+            if (state.currentSection === 'map') {
+                if (state.unlockedLevels.includes('quiz')) startMission('quiz');
+                else if (state.unlockedLevels.includes('phrases')) startMission('phrases');
+                else if (state.unlockedLevels.includes('spelling')) startMission('spelling');
+                else startMission('learn');
+            } else if (state.currentSection === 'learn') {
+                originalVocabulary.forEach(v => state.learnedWords.add(v.word));
+                state.stars += originalVocabulary.length;
+                if (!state.unlockedLevels.includes('spelling')) state.unlockedLevels.push('spelling');
+                startMission('spelling');
+            } else if (state.currentSection === 'spelling') {
+                state.spellingIdx = originalVocabulary.length;
+                if (!state.unlockedLevels.includes('phrases')) state.unlockedLevels.push('phrases');
+                renderSpelling(); 
+            } else if (state.currentSection === 'phrases') {
+                phrasesData.forEach(p => state.readPhrases.add(p.word));
+                state.stars += phrasesData.length * 2;
+                finishPhrases();
+            } else if (state.currentSection === 'quiz') {
+                state.quizIdx = state.currentVocab.length;
+                state.quizCorrect = state.currentVocab.length;
+                finishQuiz();
+            }
+            
+            updateSpeech("Master Skip activated!");
         }
     </script>
 </body>
